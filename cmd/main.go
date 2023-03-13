@@ -7,7 +7,6 @@ import (
 	"log"
 	"net/http"
 	"strconv"
-	"strings"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -46,8 +45,8 @@ func main() {
 	router.Post("/create", srv.Create)
 	router.Post("/make_friends", srv.MakeFriends)
 	//router.Get("/delete_user", srv.DeleteUser)
-	router.Get("/friends", srv.GetFriends)
-	//router.Put("/user_id", srv.ChangeAge)
+	router.Get("/friends/user_id", srv.GetFriends)
+	router.Put("/user_id", srv.ChangeAge)
 
 	log.Fatal(http.ListenAndServe(hostName, router))
 }
@@ -132,38 +131,40 @@ func (s *service) MakeFriends(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *service) GetFriends(w http.ResponseWriter, r *http.Request) {
-	content, err := ioutil.ReadAll(r.Body)
+
+	id, err := strconv.Atoi(r.URL.Query().Get("id"))
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte(err.Error()))
 		return
 	}
 
-	defer r.Body.Close()
+	// если пользователь найден
+	_, ok := s.store[id]
+	if ok {
 
-	splittedContent := strings.Split(string(content), "/")
+		userFriends, ok := s.store[id]
+		if !ok {
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte("User not found..."))
+			return
+		}
 
-	userId, err := strconv.Atoi(splittedContent[2])
-	if err != nil {
+		response := ""
+		for _, friend := range userFriends.Friends {
+			response += friend.toString()
+		}
+
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(response))
+		return
+
+	} else {
 		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte(err.Error()))
+		w.Write([]byte("user not found ...."))
 		return
 	}
 
-	userFriends, ok := s.store[userId]
-	if !ok {
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte("User not found..."))
-		return
-	}
-
-	response := ""
-	for _, friend := range userFriends.Friends {
-		response += friend.toString()
-	}
-
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(response))
 }
 
 func (s *service) DeleteUser(w http.ResponseWriter, r *http.Request) {
@@ -215,38 +216,55 @@ func (s *service) DeleteUser(w http.ResponseWriter, r *http.Request) {
 
 }
 
-/*
 func (s *service) ChangeAge(w http.ResponseWriter, r *http.Request) {
 
-	content, err := ioutil.ReadAll(r.Body)
+	id, err := strconv.Atoi(r.URL.Query().Get("id"))
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte(err.Error()))
 		return
 	}
 
-	defer r.Body.Close()
+	// если пользователь найден
+	_, ok := s.store[id]
+	if ok {
+		content, err := ioutil.ReadAll(r.Body)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte(err.Error()))
+			return
+		}
+		defer r.Body.Close()
 
-	type UserNewAge struct {
-		New_age string `json: "new age"`
-	}
+		type UserNewAge struct {
+			New_age string `json: "new_age"`
+		}
 
-	var una UserNewAge
+		var una UserNewAge
 
-	if err := json.Unmarshal(content, &una); err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte(err.Error()))
+		if err := json.Unmarshal(content, &una); err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte(err.Error()))
+			return
+		}
+
+		ageUser, err := strconv.Atoi(una.New_age)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte("user not found ...."))
+			return
+		}
+
+		s.store[id].Age = ageUser
+
+		w.WriteHeader(http.StatusOK)
+		fmt.Fprintf(w, "Возраст пользователя %s успешно обновлен на %d", s.store[id].Name, s.store[id].Age)
 		return
-	}
 
-	ageUser, err := strconv.Atoi(una.New_age)
-	if err != nil {
+	} else {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte("user not found ...."))
 		return
 	}
 
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("Возраст пользователя обновлен"))
-
-}*/
+}
