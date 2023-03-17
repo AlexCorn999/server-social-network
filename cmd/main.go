@@ -14,6 +14,7 @@ import (
 
 const hostName = ":8080"
 
+// хранит кол-во пользователей
 var user_id = 1
 
 type User struct {
@@ -42,10 +43,11 @@ func main() {
 	fmt.Println("Starting server ...")
 
 	srv := service{make(map[int]*User)}
-	router.Post("/create", srv.Create)
-	router.Post("/make_friends", srv.MakeFriends)
+
+	router.Post("/users", srv.Create)
+	router.Post("/users/friends", srv.MakeFriends)
 	router.Delete("/user", srv.DeleteUser)
-	router.Get("/friends/{user_id}", srv.GetFriends)
+	router.Get("/users/{user_id}", srv.GetUser)
 	router.Put("/{user_id}", srv.ChangeAge)
 
 	log.Fatal(http.ListenAndServe(hostName, router))
@@ -54,7 +56,7 @@ func main() {
 func (s *service) Create(w http.ResponseWriter, r *http.Request) {
 	content, err := ioutil.ReadAll(r.Body)
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
+		w.WriteHeader(http.StatusNotFound)
 		w.Write([]byte(err.Error()))
 		return
 	}
@@ -63,7 +65,7 @@ func (s *service) Create(w http.ResponseWriter, r *http.Request) {
 
 	var u User
 	if err := json.Unmarshal(content, &u); err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
+		w.WriteHeader(http.StatusNotFound)
 		w.Write([]byte(err.Error()))
 		return
 	}
@@ -78,7 +80,7 @@ func (s *service) Create(w http.ResponseWriter, r *http.Request) {
 func (s *service) MakeFriends(w http.ResponseWriter, r *http.Request) {
 	content, err := ioutil.ReadAll(r.Body)
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
+		w.WriteHeader(http.StatusNotFound)
 		w.Write([]byte(err.Error()))
 		return
 	}
@@ -93,21 +95,21 @@ func (s *service) MakeFriends(w http.ResponseWriter, r *http.Request) {
 	var mk MakeFriends
 
 	if err := json.Unmarshal(content, &mk); err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
+		w.WriteHeader(http.StatusNotFound)
 		w.Write([]byte(err.Error()))
 		return
 	}
 
 	id1, err := strconv.Atoi(mk.Source_id)
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
+		w.WriteHeader(http.StatusNotFound)
 		w.Write([]byte("can't convert user_id ..."))
 		return
 	}
 
 	id2, err := strconv.Atoi(mk.Target_id)
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
+		w.WriteHeader(http.StatusNotFound)
 		w.Write([]byte("can't convert user_id ..."))
 		return
 	}
@@ -117,7 +119,7 @@ func (s *service) MakeFriends(w http.ResponseWriter, r *http.Request) {
 	id_2, ok2 := s.store[id2]
 
 	if !ok1 || !ok2 {
-		w.WriteHeader(http.StatusInternalServerError)
+		w.WriteHeader(http.StatusNotFound)
 		w.Write([]byte("user not found"))
 		return
 	}
@@ -130,11 +132,11 @@ func (s *service) MakeFriends(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(id_1.nowFriends(id_1, id_2)))
 }
 
-func (s *service) GetFriends(w http.ResponseWriter, r *http.Request) {
+func (s *service) GetUser(w http.ResponseWriter, r *http.Request) {
 
 	id, err := strconv.Atoi(chi.URLParam(r, "user_id"))
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
+		w.WriteHeader(http.StatusNotFound)
 		w.Write([]byte(err.Error()))
 		return
 	}
@@ -142,14 +144,14 @@ func (s *service) GetFriends(w http.ResponseWriter, r *http.Request) {
 	// если пользователь найден
 	_, ok := s.store[id]
 	if !ok {
-		w.WriteHeader(http.StatusInternalServerError)
+		w.WriteHeader(http.StatusNotFound)
 		w.Write([]byte("user not found ...."))
 		return
 	}
 
 	userFriends, ok := s.store[id]
 	if !ok {
-		w.WriteHeader(http.StatusInternalServerError)
+		w.WriteHeader(http.StatusNotFound)
 		w.Write([]byte("User not found..."))
 		return
 	}
@@ -167,7 +169,7 @@ func (s *service) GetFriends(w http.ResponseWriter, r *http.Request) {
 func (s *service) DeleteUser(w http.ResponseWriter, r *http.Request) {
 	content, err := ioutil.ReadAll(r.Body)
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
+		w.WriteHeader(http.StatusNotFound)
 		w.Write([]byte(err.Error()))
 		return
 	}
@@ -181,7 +183,7 @@ func (s *service) DeleteUser(w http.ResponseWriter, r *http.Request) {
 	var ud UserIdForDelete
 
 	if err := json.Unmarshal(content, &ud); err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
+		w.WriteHeader(http.StatusNotFound)
 		w.Write([]byte(err.Error()))
 		return
 	}
@@ -189,7 +191,7 @@ func (s *service) DeleteUser(w http.ResponseWriter, r *http.Request) {
 	// получаем user_id
 	idUser, err := strconv.Atoi(ud.Target_id)
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
+		w.WriteHeader(http.StatusNotFound)
 		w.Write([]byte("user not found ...."))
 		return
 	}
@@ -197,15 +199,31 @@ func (s *service) DeleteUser(w http.ResponseWriter, r *http.Request) {
 	// если пользователь найден
 	_, ok := s.store[idUser]
 	if !ok {
-		w.WriteHeader(http.StatusInternalServerError)
+		w.WriteHeader(http.StatusNotFound)
 		w.Write([]byte("user not found ...."))
 		return
 	}
 
 	response := fmt.Sprintf("User %s has been deleted", s.store[idUser].Name)
-
 	user_id--
-	s.store[idUser] = nil
+
+	var allFriends []*User
+
+	// переписываем всех друзей удаляемого польщователя в срез
+	for _, friend := range s.store[idUser].Friends {
+		allFriends = append(allFriends, friend)
+	}
+
+	// удаление пользователя у каждого друга
+	for i := 0; i < len(allFriends); i++ {
+		for j := 0; j < len(allFriends[i].Friends); j++ {
+			if allFriends[i].Friends[j] == s.store[idUser] {
+
+				newFriends := append(allFriends[i].Friends[:j], allFriends[i].Friends[j+1:]...)
+				allFriends[i].Friends = newFriends
+			}
+		}
+	}
 
 	delete(s.store, idUser)
 	w.WriteHeader(http.StatusOK)
@@ -216,7 +234,7 @@ func (s *service) ChangeAge(w http.ResponseWriter, r *http.Request) {
 
 	id, err := strconv.Atoi(chi.URLParam(r, "user_id"))
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
+		w.WriteHeader(http.StatusNotFound)
 		w.Write([]byte(err.Error()))
 		return
 	}
@@ -224,14 +242,14 @@ func (s *service) ChangeAge(w http.ResponseWriter, r *http.Request) {
 	// если пользователь найден
 	_, ok := s.store[id]
 	if !ok {
-		w.WriteHeader(http.StatusInternalServerError)
+		w.WriteHeader(http.StatusNotFound)
 		w.Write([]byte("user not found ...."))
 		return
 	}
 
 	content, err := ioutil.ReadAll(r.Body)
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
+		w.WriteHeader(http.StatusNotFound)
 		w.Write([]byte(err.Error()))
 		return
 	}
@@ -244,7 +262,7 @@ func (s *service) ChangeAge(w http.ResponseWriter, r *http.Request) {
 	var una UserNewAge
 
 	if err := json.Unmarshal(content, &una); err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
+		w.WriteHeader(http.StatusNotFound)
 		w.Write([]byte(err.Error()))
 		return
 	}
@@ -253,5 +271,4 @@ func (s *service) ChangeAge(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusOK)
 	fmt.Fprintf(w, "Возраст пользователя %s успешно обновлен на %s", s.store[id].Name, s.store[id].Age)
-	return
 }
