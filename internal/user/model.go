@@ -1,6 +1,11 @@
-package app
+package model
 
-import "fmt"
+import (
+	"fmt"
+)
+
+// count of users
+var User_id = 1
 
 type User struct {
 	Name    string  `json: "name"`
@@ -9,7 +14,7 @@ type User struct {
 }
 
 func (u *User) UserCreated() string {
-	return fmt.Sprintf("User was created %s\nUser_id : %d.\n", u.Name, user_id)
+	return fmt.Sprintf("User was created %s\nUser_id : %d.\n", u.Name, User_id)
 }
 
 func NowFriends(u1, u2 *User) string {

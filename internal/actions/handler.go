@@ -1,4 +1,4 @@
-package app
+package handler
 
 import (
 	"encoding/json"
@@ -6,11 +6,13 @@ import (
 	"net/http"
 	"strconv"
 
+	model "github.com/AlexCorn999/server-social-network/internal/user"
 	"github.com/go-chi/chi/v5"
 )
 
-// count of users
-var user_id = 1
+type Service struct {
+	Store map[int]*model.User
+}
 
 func (s *Service) Create(w http.ResponseWriter, r *http.Request) {
 
@@ -23,7 +25,7 @@ func (s *Service) Create(w http.ResponseWriter, r *http.Request) {
 
 	defer r.Body.Close()
 
-	var u User
+	var u model.User
 	if err := json.Unmarshal(content, &u); err != nil {
 		w.WriteHeader(http.StatusNotFound)
 		w.Write([]byte(err.Error()))
@@ -31,10 +33,10 @@ func (s *Service) Create(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// write new user in the map under the user_id
-	s.Store[user_id] = &u
+	s.Store[model.User_id] = &u
 	w.WriteHeader(http.StatusCreated)
 	w.Write([]byte(u.UserCreated()))
-	user_id++
+	model.User_id++
 }
 
 func (s *Service) MakeFriends(w http.ResponseWriter, r *http.Request) {
@@ -88,53 +90,31 @@ func (s *Service) MakeFriends(w http.ResponseWriter, r *http.Request) {
 	id_2.Friends = append(id_2.Friends, id_1)
 
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(NowFriends(id_1, id_2)))
+	w.Write([]byte(model.NowFriends(id_1, id_2)))
 }
 
 func (s *Service) DeleteUser(w http.ResponseWriter, r *http.Request) {
 
-	content, err := ioutil.ReadAll(r.Body)
+	id, err := strconv.Atoi(chi.URLParam(r, "user_id"))
 	if err != nil {
 		w.WriteHeader(http.StatusNotFound)
 		w.Write([]byte(err.Error()))
 		return
 	}
 
-	defer r.Body.Close()
-
-	type UserIdForDelete struct {
-		Target_id string `json: "target_id"`
-	}
-
-	var forDelete UserIdForDelete
-
-	if err := json.Unmarshal(content, &forDelete); err != nil {
-		w.WriteHeader(http.StatusNotFound)
-		w.Write([]byte(err.Error()))
-		return
-	}
-
-	// get the userID
-	idUser, err := strconv.Atoi(forDelete.Target_id)
-	if err != nil {
-		w.WriteHeader(http.StatusNotFound)
-		w.Write([]byte("user not found ...."))
-		return
-	}
-
-	// looking for a user
-	_, ok := s.Store[idUser]
+	// if the user is found
+	_, ok := s.Store[id]
 	if !ok {
 		w.WriteHeader(http.StatusNotFound)
-		w.Write([]byte("user not found ...."))
+		w.Write([]byte("user not found..."))
 		return
 	}
 
-	response := s.Store[idUser].UserDeleted()
-	user_id--
+	response := s.Store[id].UserDeleted()
+	model.User_id--
 
-	s.Store[idUser].DeleteFromFriends()
-	delete(s.Store, idUser)
+	s.Store[id].DeleteFromFriends()
+	delete(s.Store, id)
 
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte(response))

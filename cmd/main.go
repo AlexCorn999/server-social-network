@@ -5,7 +5,7 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/AlexCorn999/server-social-network/internal/app"
+	repository "github.com/AlexCorn999/server-social-network/internal/storage"
 	"github.com/go-chi/chi/middleware"
 	"github.com/go-chi/chi/v5"
 )
@@ -19,11 +19,11 @@ func main() {
 	fmt.Println("Starting server ...")
 
 	// storage creation
-	srv := app.New()
+	srv := repository.New()
 
 	router.Post("/users", srv.Create)
 	router.Post("/friends", srv.MakeFriends)
-	router.Delete("/user", srv.DeleteUser)
+	router.Delete("/users/{user_id}", srv.DeleteUser)
 	router.Get("/friends/{user_id}", srv.GetUser)
 	router.Put("/users/{user_id}", srv.ChangeAge)
 
