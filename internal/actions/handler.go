@@ -2,49 +2,57 @@ package handler
 
 import (
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"strconv"
 
+	"github.com/AlexCorn999/server-social-network/internal/logger"
+	repository "github.com/AlexCorn999/server-social-network/internal/storage"
 	model "github.com/AlexCorn999/server-social-network/internal/user"
 	"github.com/go-chi/chi/v5"
 )
 
-type Service struct {
-	Store map[int]*model.User
+type Storage struct {
+	*repository.Service
 }
 
-func (s *Service) Create(w http.ResponseWriter, r *http.Request) {
+func (s *Storage) Create(w http.ResponseWriter, r *http.Request) {
 
 	content, err := ioutil.ReadAll(r.Body)
+
 	if err != nil {
 		w.WriteHeader(http.StatusNotFound)
 		w.Write([]byte(err.Error()))
+		logger.ForError(err)
 		return
 	}
 
 	defer r.Body.Close()
 
 	var u model.User
-	if err := json.Unmarshal(content, &u); err != nil {
+	if err = json.Unmarshal(content, &u); err != nil {
 		w.WriteHeader(http.StatusNotFound)
 		w.Write([]byte(err.Error()))
+		logger.ForError(err)
 		return
 	}
 
 	// write new user in the map under the user_id
-	s.Store[model.User_id] = &u
+	s.AddUser(&u)
 	w.WriteHeader(http.StatusCreated)
 	w.Write([]byte(u.UserCreated()))
 	model.User_id++
 }
 
-func (s *Service) MakeFriends(w http.ResponseWriter, r *http.Request) {
+func (s *Storage) MakeFriends(w http.ResponseWriter, r *http.Request) {
 
 	content, err := ioutil.ReadAll(r.Body)
+
 	if err != nil {
 		w.WriteHeader(http.StatusNotFound)
 		w.Write([]byte(err.Error()))
+		logger.ForError(err)
 		return
 	}
 
@@ -60,6 +68,7 @@ func (s *Service) MakeFriends(w http.ResponseWriter, r *http.Request) {
 	if err := json.Unmarshal(content, &request); err != nil {
 		w.WriteHeader(http.StatusNotFound)
 		w.Write([]byte(err.Error()))
+		logger.ForError(err)
 		return
 	}
 
@@ -67,6 +76,7 @@ func (s *Service) MakeFriends(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		w.WriteHeader(http.StatusNotFound)
 		w.Write([]byte("can't convert user_id ..."))
+		logger.ForError(fmt.Errorf("can't convert user_id : %v", err))
 		return
 	}
 
@@ -74,28 +84,26 @@ func (s *Service) MakeFriends(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		w.WriteHeader(http.StatusNotFound)
 		w.Write([]byte("can't convert user_id ..."))
+		logger.ForError(fmt.Errorf("can't convert user_id : %v", err))
 		return
 	}
 
-	id_1, ok1 := s.Store[id1]
-	id_2, ok2 := s.Store[id2]
-
-	if !ok1 || !ok2 {
+	text, err := s.AddFriends(id1, id2)
+	if err != nil {
 		w.WriteHeader(http.StatusNotFound)
-		w.Write([]byte("user not found"))
+		w.Write([]byte(err.Error()))
+		logger.ForError(err)
 		return
 	}
-
-	id_1.Friends = append(id_1.Friends, id_2)
-	id_2.Friends = append(id_2.Friends, id_1)
-
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(model.NowFriends(id_1, id_2)))
+	w.Write([]byte(text))
 }
 
-func (s *Service) DeleteUser(w http.ResponseWriter, r *http.Request) {
+func (s *Storage) DeleteUser(w http.ResponseWriter, r *http.Request) {
 
 	id, err := strconv.Atoi(chi.URLParam(r, "user_id"))
+
+	logger.ForError(err)
 	if err != nil {
 		w.WriteHeader(http.StatusNotFound)
 		w.Write([]byte(err.Error()))
@@ -103,72 +111,62 @@ func (s *Service) DeleteUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// if the user is found
-	_, ok := s.Store[id]
-	if !ok {
+	text, err := s.UserDelete(id)
+	if err != nil {
 		w.WriteHeader(http.StatusNotFound)
 		w.Write([]byte("user not found..."))
+		logger.ForError(err)
 		return
 	}
 
-	response := s.Store[id].UserDeleted()
-	model.User_id--
-
-	s.Store[id].DeleteFromFriends()
-	delete(s.Store, id)
-
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(response))
+	w.Write([]byte(text))
 }
 
-func (s *Service) GetUser(w http.ResponseWriter, r *http.Request) {
+func (s *Storage) GetUser(w http.ResponseWriter, r *http.Request) {
 
 	id, err := strconv.Atoi(chi.URLParam(r, "user_id"))
+
 	if err != nil {
 		w.WriteHeader(http.StatusNotFound)
 		w.Write([]byte(err.Error()))
+		logger.ForError(err)
 		return
 	}
 
 	// if the user is found
-	userFriends, ok := s.Store[id]
-	if !ok {
+	text, err := s.AllUserFriends(id)
+	if err != nil {
 		w.WriteHeader(http.StatusNotFound)
 		w.Write([]byte("user not found..."))
+		logger.ForError(err)
 		return
-	}
-
-	response := ""
-	for _, friend := range userFriends.Friends {
-		response += friend.FriendsToString()
 	}
 
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(response))
+	w.Write([]byte(text))
 }
 
-func (s *Service) ChangeAge(w http.ResponseWriter, r *http.Request) {
+func (s *Storage) ChangeAge(w http.ResponseWriter, r *http.Request) {
 
 	id, err := strconv.Atoi(chi.URLParam(r, "user_id"))
+
 	if err != nil {
 		w.WriteHeader(http.StatusNotFound)
 		w.Write([]byte(err.Error()))
-		return
-	}
-
-	// if the user is found
-	_, ok := s.Store[id]
-	if !ok {
-		w.WriteHeader(http.StatusNotFound)
-		w.Write([]byte("user not found ...."))
+		logger.ForError(err)
 		return
 	}
 
 	content, err := ioutil.ReadAll(r.Body)
+
 	if err != nil {
 		w.WriteHeader(http.StatusNotFound)
 		w.Write([]byte(err.Error()))
+		logger.ForError(err)
 		return
 	}
+
 	defer r.Body.Close()
 
 	type UserNewAge struct {
@@ -180,11 +178,19 @@ func (s *Service) ChangeAge(w http.ResponseWriter, r *http.Request) {
 	if err := json.Unmarshal(content, &requestNewAge); err != nil {
 		w.WriteHeader(http.StatusNotFound)
 		w.Write([]byte(err.Error()))
+		logger.ForError(err)
 		return
 	}
 
-	s.Store[id].Age = requestNewAge.New_age
+	// if the user is found
+	text, err := s.NewUserAge(id, requestNewAge.New_age)
+	if err != nil {
+		w.WriteHeader(http.StatusNotFound)
+		w.Write([]byte("user not found ...."))
+		logger.ForError(err)
+		return
+	}
 
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(s.Store[id].NewAge()))
+	w.Write([]byte(text))
 }

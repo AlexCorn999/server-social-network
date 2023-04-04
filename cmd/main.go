@@ -5,7 +5,9 @@ import (
 	"log"
 	"net/http"
 
+	handler "github.com/AlexCorn999/server-social-network/internal/actions"
 	repository "github.com/AlexCorn999/server-social-network/internal/storage"
+	model "github.com/AlexCorn999/server-social-network/internal/user"
 	"github.com/go-chi/chi/middleware"
 	"github.com/go-chi/chi/v5"
 )
@@ -19,7 +21,8 @@ func main() {
 	fmt.Println("Starting server ...")
 
 	// storage creation
-	srv := repository.New()
+	rs := &repository.Service{Store: make(map[int]*model.User)}
+	srv := handler.Storage{rs}
 
 	router.Post("/users", srv.Create)
 	router.Post("/friends", srv.MakeFriends)
