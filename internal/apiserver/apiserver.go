@@ -36,7 +36,7 @@ func (s *APIServer) Start() error {
 	s.router.Use(middleware.Logger)
 	s.configureRouter()
 
-	fmt.Println("starting api server")
+	fmt.Println("Starting api server")
 
 	return http.ListenAndServe(hostName, s.router)
 }
@@ -89,8 +89,8 @@ func (s *APIServer) MakeFriends(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 
 	type MakeFriends struct {
-		SourceID string `json: "source_id"`
-		TargetID string `json: "target_id"`
+		Source_id string `json: "source_id"`
+		Target_id string `json: "target_id"`
 	}
 
 	var request MakeFriends
@@ -102,7 +102,7 @@ func (s *APIServer) MakeFriends(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	id1, err := strconv.Atoi(request.SourceID)
+	id1, err := strconv.Atoi(request.Source_id)
 	if err != nil {
 		w.WriteHeader(http.StatusNotFound)
 		w.Write([]byte("can't convert user_id ..."))
@@ -110,7 +110,7 @@ func (s *APIServer) MakeFriends(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	id2, err := strconv.Atoi(request.TargetID)
+	id2, err := strconv.Atoi(request.Target_id)
 	if err != nil {
 		w.WriteHeader(http.StatusNotFound)
 		w.Write([]byte("can't convert user_id ..."))
@@ -197,7 +197,7 @@ func (s *APIServer) ChangeAge(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 
 	type UserNewAge struct {
-		NewAge string `json: "new_age"`
+		New_age string `json: "new_age"`
 	}
 
 	var requestNewAge UserNewAge
@@ -209,7 +209,7 @@ func (s *APIServer) ChangeAge(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	text, err := s.storage.NewUserAge(id, requestNewAge.NewAge)
+	text, err := s.storage.NewUserAge(id, requestNewAge.New_age)
 	if err != nil {
 		w.WriteHeader(http.StatusNotFound)
 		w.Write([]byte("user not found ...."))
