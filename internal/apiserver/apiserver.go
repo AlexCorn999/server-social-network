@@ -1,26 +1,57 @@
-package handler
+package apiserver
 
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
+
 	"net/http"
 	"strconv"
 
 	"github.com/AlexCorn999/server-social-network/internal/logger"
-	repository "github.com/AlexCorn999/server-social-network/internal/storage"
+	"github.com/AlexCorn999/server-social-network/internal/storage"
 	model "github.com/AlexCorn999/server-social-network/internal/user"
-	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi"
+	"github.com/go-chi/chi/middleware"
 )
 
-type Storage struct {
-	*repository.Service
+const hostName = ":8080"
+
+// APIServer ...
+type APIServer struct {
+	storage *storage.Service
+	router  *chi.Mux
 }
 
-func (s *Storage) Create(w http.ResponseWriter, r *http.Request) {
+// New APIServer
+func New() *APIServer {
+	return &APIServer{
+		router:  chi.NewRouter(),
+		storage: storage.NewService(),
+	}
+}
 
-	content, err := ioutil.ReadAll(r.Body)
+// Start APIServer
+func (s *APIServer) Start() error {
+	s.router.Use(middleware.Logger)
+	s.configureRouter()
 
+	fmt.Println("Starting api server")
+
+	return http.ListenAndServe(hostName, s.router)
+}
+
+func (s *APIServer) configureRouter() {
+	s.router.Post("/users", s.Create)
+	s.router.Post("/friends", s.MakeFriends)
+	s.router.Delete("/users/{user_id}", s.DeleteUser)
+	s.router.Get("/friends/{user_id}", s.GetUser)
+	s.router.Put("/users/{user_id}", s.ChangeAge)
+}
+
+// Create отвечает за создание пользователя и добавления в хранилище.
+func (s *APIServer) Create(w http.ResponseWriter, r *http.Request) {
+	content, err := io.ReadAll(r.Body)
 	if err != nil {
 		w.WriteHeader(http.StatusNotFound)
 		w.Write([]byte(err.Error()))
@@ -38,17 +69,16 @@ func (s *Storage) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// write new user in the map under the user_id
-	s.AddUser(&u)
+	// записываем пользователя в хранилище
+	s.storage.AddUser(&u)
 	w.WriteHeader(http.StatusCreated)
 	w.Write([]byte(u.UserCreated()))
-	model.User_id++
+	model.UserID++
 }
 
-func (s *Storage) MakeFriends(w http.ResponseWriter, r *http.Request) {
-
-	content, err := ioutil.ReadAll(r.Body)
-
+// MakeFriends добавляет пользователей в друзья.
+func (s *APIServer) MakeFriends(w http.ResponseWriter, r *http.Request) {
+	content, err := io.ReadAll(r.Body)
 	if err != nil {
 		w.WriteHeader(http.StatusNotFound)
 		w.Write([]byte(err.Error()))
@@ -88,7 +118,7 @@ func (s *Storage) MakeFriends(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	text, err := s.AddFriends(id1, id2)
+	text, err := s.storage.AddFriends(id1, id2)
 	if err != nil {
 		w.WriteHeader(http.StatusNotFound)
 		w.Write([]byte(err.Error()))
@@ -99,19 +129,17 @@ func (s *Storage) MakeFriends(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(text))
 }
 
-func (s *Storage) DeleteUser(w http.ResponseWriter, r *http.Request) {
-
+// DeleteUser удаляет пользователя.
+func (s *APIServer) DeleteUser(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.Atoi(chi.URLParam(r, "user_id"))
-
-	logger.ForError(err)
 	if err != nil {
 		w.WriteHeader(http.StatusNotFound)
 		w.Write([]byte(err.Error()))
+		logger.ForError(err)
 		return
 	}
 
-	// if the user is found
-	text, err := s.UserDelete(id)
+	text, err := s.storage.UserDelete(id)
 	if err != nil {
 		w.WriteHeader(http.StatusNotFound)
 		w.Write([]byte("user not found..."))
@@ -123,10 +151,9 @@ func (s *Storage) DeleteUser(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(text))
 }
 
-func (s *Storage) GetUser(w http.ResponseWriter, r *http.Request) {
-
+// GetUser выводит друзей пользователя.
+func (s *APIServer) GetUser(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.Atoi(chi.URLParam(r, "user_id"))
-
 	if err != nil {
 		w.WriteHeader(http.StatusNotFound)
 		w.Write([]byte(err.Error()))
@@ -134,8 +161,7 @@ func (s *Storage) GetUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// if the user is found
-	text, err := s.AllUserFriends(id)
+	text, err := s.storage.AllUserFriends(id)
 	if err != nil {
 		w.WriteHeader(http.StatusNotFound)
 		w.Write([]byte("user not found..."))
@@ -147,7 +173,8 @@ func (s *Storage) GetUser(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(text))
 }
 
-func (s *Storage) ChangeAge(w http.ResponseWriter, r *http.Request) {
+// ChangeAge меняет возраст пользователя.
+func (s *APIServer) ChangeAge(w http.ResponseWriter, r *http.Request) {
 
 	id, err := strconv.Atoi(chi.URLParam(r, "user_id"))
 
@@ -158,7 +185,7 @@ func (s *Storage) ChangeAge(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	content, err := ioutil.ReadAll(r.Body)
+	content, err := io.ReadAll(r.Body)
 
 	if err != nil {
 		w.WriteHeader(http.StatusNotFound)
@@ -182,8 +209,7 @@ func (s *Storage) ChangeAge(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// if the user is found
-	text, err := s.NewUserAge(id, requestNewAge.New_age)
+	text, err := s.storage.NewUserAge(id, requestNewAge.New_age)
 	if err != nil {
 		w.WriteHeader(http.StatusNotFound)
 		w.Write([]byte("user not found ...."))
