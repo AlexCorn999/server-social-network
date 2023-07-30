@@ -8,3 +8,10 @@ services:
       - POSTGRES_PASSWORD=5427
     ports:
       - "5432:5432"
+  
+  nginx:
+    image: nginx:stable-alpine
+    ports:
+    - "8080:80"
+    volumes:
+    - ./nginx.conf:/usr/local/etc/nginx/nginx.conf:ro
