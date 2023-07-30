@@ -95,8 +95,8 @@ func (s *APIServer) MakeFriends(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 
 	type MakeFriends struct {
-		Source_id string `json: "source_id"`
-		Target_id string `json: "target_id"`
+		Source_id string `json:"source_id"`
+		Target_id string `json:"target_id"`
 	}
 
 	var request MakeFriends
@@ -230,7 +230,7 @@ func (s *APIServer) ChangeAge(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 
 	type UserNewAge struct {
-		New_age string `json: "new_age"`
+		New_age string `json:"new_age"`
 	}
 
 	var requestNewAge UserNewAge

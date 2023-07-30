@@ -9,9 +9,9 @@ var UserID = 1
 
 type User struct {
 	Id      int
-	Name    string  `json: "name"`
-	Age     string  `json: "age"`
-	Friends []*User `json: "friends"`
+	Name    string  `json:"name"`
+	Age     string  `json:"age"`
+	Friends []*User `json:"friends"`
 }
 
 // UserCreated оповещает о добавлении пользователя.
