@@ -1,17 +1,30 @@
-version: "3.5"
+version: "3.6"
 services:
+
   postgres:
-    container_name: ninja_db
-    image: postgres:13.3
-    environment:
-      - POSTGRES_USER=ninja
-      - POSTGRES_PASSWORD=5427
-    ports:
-      - "5432:5432"
-  
+      container_name: ninja_db
+      image: postgres:13.3
+      environment:
+        - POSTGRES_USER=ninja
+        - POSTGRES_PASSWORD=5427
+      ports:
+        - "5432:5432"
+
+  api:
+      build: 
+        context: .
+        dockerfile: Dockerfile
+      ports:
+        - "8080:8080"
+      depends_on:
+        - postgres
+
   nginx:
-    image: nginx:stable-alpine
+    build: ./nginx
     ports:
-    - "8080:80"
-    volumes:
-    - ./nginx.conf:/usr/local/etc/nginx/nginx.conf:ro
+      - "80:80"
+    depends_on:
+      - api
+    
+
+ 
