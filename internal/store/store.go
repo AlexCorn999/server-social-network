@@ -21,7 +21,7 @@ func NewStore() *Store {
 
 // Open открывает подключение к базе данных.
 func (s *Store) Open() error {
-	db, err := sql.Open("postgres", "host=127.0.0.1 port=5432 user=ninja dbname=ninja sslmode=disable password=5427")
+	db, err := sql.Open("postgres", "host=192.168.176.2 port=5432 user=ninja dbname=ninja sslmode=disable password=5427")
 	if err != nil {
 		return err
 	}
