@@ -1,13 +1,13 @@
-FROM golang:latest
+FROM golang:1.19.0
+
 WORKDIR /app
-COPY . /app
 
-# Build the go app
-RUN go build -o ./cmd/main ./cmd
+COPY . .
 
+RUN go get -d -v ./...
 
-# Expose port
-EXPOSE 8080
+RUN go build -o cmd/main cmd/main.go
 
-# Define the command to run the app
-ENTRYPOINT ["./cmd/main"]
+EXPOSE 9000
+
+CMD ["./cmd/main"]

@@ -3,6 +3,7 @@ package store
 import (
 	"database/sql"
 	"fmt"
+	"os"
 
 	_ "github.com/lib/pq"
 )
@@ -19,9 +20,10 @@ func NewStore() *Store {
 	}
 }
 
+// host=172.28.0.2 port=5432 user=skillbox dbname=skillbox sslmode=disable password=5427
 // Open открывает подключение к базе данных.
 func (s *Store) Open() error {
-	db, err := sql.Open("postgres", "host=192.168.176.2 port=5432 user=ninja dbname=ninja sslmode=disable password=5427")
+	db, err := sql.Open("postgres", os.Getenv("DATABASE_URL"))
 	if err != nil {
 		return err
 	}
