@@ -29,11 +29,6 @@ func (u *User) UserDeleted() string {
 	return fmt.Sprintf("User %s has been deleted", u.Name)
 }
 
-// Выводит информацию о друге у пользователя.
-func (u *User) FriendsToString() string {
-	return fmt.Sprintf("Name is %s and age is %s\n", u.Name, u.Age)
-}
-
 // NewAge меняет возраст пользователя.
 func (u *User) NewAge(age string) string {
 	u.Age = age

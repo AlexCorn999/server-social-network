@@ -10,8 +10,8 @@ import (
 	"strconv"
 
 	"github.com/AlexCorn999/server-social-network/internal/logger"
-	"github.com/AlexCorn999/server-social-network/internal/store"
 	model "github.com/AlexCorn999/server-social-network/internal/user"
+	"github.com/AlexCorn999/server-social-network/internal/usercase"
 	"github.com/go-chi/chi"
 	"github.com/go-chi/chi/middleware"
 )
@@ -20,33 +20,27 @@ const hostName = ":9000"
 
 // APIServer ...
 type APIServer struct {
-	storage *store.PostgresStore
-	store.Store
+	usercase.UserCase
 	router *chi.Mux
 }
 
 // New APIServer
 func New() *APIServer {
 	return &APIServer{
-		router:  chi.NewRouter(),
-		storage: store.NewStore(),
+		router:   chi.NewRouter(),
+		UserCase: usercase.NewUserCases(),
 	}
 }
 
 // Start APIServer
 func (s *APIServer) Start() error {
-	// добавил интерфейс
-	s.Store = s.storage
-
 	s.router.Use(middleware.Logger)
 	s.configureRouter()
-	if err := s.storage.Open(); err != nil {
+	if err := s.UserCase.OpenConnection(); err != nil {
 		log.Fatal(err)
 	}
-	defer s.storage.Close()
-
+	defer s.UserCase.CloseConnection()
 	fmt.Println("Starting api server")
-
 	return http.ListenAndServe(hostName, s.router)
 }
 
@@ -67,9 +61,7 @@ func (s *APIServer) Create(w http.ResponseWriter, r *http.Request) {
 		logger.ForError(err)
 		return
 	}
-
 	defer r.Body.Close()
-
 	var u model.User
 	if err = json.Unmarshal(content, &u); err != nil {
 		w.WriteHeader(http.StatusNotFound)
@@ -78,12 +70,16 @@ func (s *APIServer) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// записываем пользователя в хранилище
-	u.Id = model.UserID
-	s.Store.Create(&u)
+	// запись пользователя в базу
+	result, err := s.UserCase.AddUser(&u)
+	if err != nil {
+		w.WriteHeader(http.StatusNotFound)
+		w.Write([]byte(err.Error()))
+		logger.ForError(err)
+		return
+	}
 	w.WriteHeader(http.StatusCreated)
-	w.Write([]byte(u.UserCreated()))
-	model.UserID++
+	w.Write([]byte(result))
 }
 
 // MakeFriends добавляет пользователей в друзья.
@@ -128,30 +124,14 @@ func (s *APIServer) MakeFriends(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// проверка на наличие пользователей в базе
-	u1, err := s.Store.GetUser(id1)
+	// добавление пользователей в друзья в базу
+	result, err := s.UserCase.MakeFriends(id1, id2)
 	if err != nil {
-		w.WriteHeader(http.StatusNotFound)
-		logger.ForError(err)
-		return
-	}
-
-	u2, err := s.Store.GetUser(id2)
-	if err != nil {
-		w.WriteHeader(http.StatusNotFound)
-		logger.ForError(err)
-		return
-	}
-
-	// дружба
-	if err := s.Store.AddFriends(id1, id2); err != nil {
 		w.WriteHeader(http.StatusNotFound)
 		w.Write([]byte(err.Error()))
 		logger.ForError(err)
 		return
 	}
-
-	result := fmt.Sprintf("%s и %s теперь друзья.", u1.Name, u2.Name)
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte(result))
 }
@@ -165,23 +145,14 @@ func (s *APIServer) DeleteUser(w http.ResponseWriter, r *http.Request) {
 		logger.ForError(err)
 		return
 	}
-
-	// проверка на наличие пользователя в базе
-	u, err := s.Store.GetUser(id)
+	// удаление пользователя из базы
+	result, err := s.UserCase.DeleteUser(id)
 	if err != nil {
 		w.WriteHeader(http.StatusNotFound)
 		logger.ForError(err)
-		return
 	}
-
-	if err := s.Store.Delete(id); err != nil {
-		w.WriteHeader(http.StatusNotFound)
-		logger.ForError(err)
-	}
-
-	text := fmt.Sprintf("User %s has been deleted", u.Name)
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(text))
+	w.Write([]byte(result))
 }
 
 // GetUser выводит друзей пользователя.
@@ -194,28 +165,19 @@ func (s *APIServer) GetUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// проверка на наличие пользователя в базе
-	_, err = s.Store.GetUser(id)
+	// получение всех друзей
+	result, err := s.UserCase.GetFriends(id)
 	if err != nil {
 		w.WriteHeader(http.StatusNotFound)
 		logger.ForError(err)
 		return
 	}
-
-	result, err := s.Store.AllFriends(id)
-	if err != nil {
-		w.WriteHeader(http.StatusNotFound)
-		logger.ForError(err)
-		return
-	}
-
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte(result))
 }
 
 // ChangeAge меняет возраст пользователя.
 func (s *APIServer) ChangeAge(w http.ResponseWriter, r *http.Request) {
-
 	id, err := strconv.Atoi(chi.URLParam(r, "user_id"))
 	if err != nil {
 		w.WriteHeader(http.StatusNotFound)
@@ -245,29 +207,14 @@ func (s *APIServer) ChangeAge(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// проверка на наличие пользователя в базе
-	u, err := s.Store.GetUser(id)
+	// смена возраста пользователя
+	result, err := s.UserCase.ChangeAge(id, requestNewAge.New_age)
 	if err != nil {
-		w.WriteHeader(http.StatusNotFound)
-		logger.ForError(err)
-		return
-	}
-
-	if err := s.Store.NewAge(id, requestNewAge.New_age); err != nil {
 		w.WriteHeader(http.StatusNotFound)
 		w.Write([]byte(err.Error()))
 		logger.ForError(err)
 		return
 	}
-
-	newU, err := s.Store.GetUser(id)
-	if err != nil {
-		w.WriteHeader(http.StatusNotFound)
-		logger.ForError(err)
-		return
-	}
-
-	result := fmt.Sprintf("User %s, new_age %s", u.Name, newU.Age)
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte(result))
 }

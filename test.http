@@ -1,6 +1,6 @@
 ###
 
-GET  http://localhost:8080/friends/3 HTTP/1.1
+GET  http://localhost:8080/friends/1 HTTP/1.1
 content-type: application/json
 
 # 200 (OK)
@@ -11,24 +11,24 @@ content-type: application/json
 POST http://localhost:8080/users HTTP/1.1
 content-type: application/json
 
-{"name":"Alex","age":"20","friends":[]}
+{"name":"KATE","age":"20","friends":[]}
 
 # 201 (Created) {"id":"1"}
 # 404 (Not Found)
 
 ###
 
-PUT http://localhost:8080/users/3 HTTP/1.1
+PUT http://localhost:8080/users/2 HTTP/1.1
 content-type: application/json
 
-{"new_age":"35"}
+{"new_age":"5"}
 
 # 200 (OK)
 # 404 (Not Found) 
 
 ###
 
-DELETE http://localhost:8080/users/1 HTTP/1.1
+DELETE http://localhost:8080/users/0 HTTP/1.1
 content-type: application/json
 
 # 200 (OK)
@@ -46,10 +46,3 @@ content-type: application/json
 
 ###
 
-GET  http://localhost:8080/users/1/friends HTTP/1.1
-content-type: application/json
-
-# 200 (OK)
-# 404 (Not Found)
-
-###
