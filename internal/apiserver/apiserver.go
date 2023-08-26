@@ -20,8 +20,9 @@ const hostName = ":9000"
 
 // APIServer ...
 type APIServer struct {
-	storage *store.Store
-	router  *chi.Mux
+	storage *store.PostgresStore
+	store.Store
+	router *chi.Mux
 }
 
 // New APIServer
@@ -34,6 +35,9 @@ func New() *APIServer {
 
 // Start APIServer
 func (s *APIServer) Start() error {
+	// добавил интерфейс
+	s.Store = s.storage
+
 	s.router.Use(middleware.Logger)
 	s.configureRouter()
 	if err := s.storage.Open(); err != nil {
@@ -76,7 +80,7 @@ func (s *APIServer) Create(w http.ResponseWriter, r *http.Request) {
 
 	// записываем пользователя в хранилище
 	u.Id = model.UserID
-	s.storage.User().Create(&u)
+	s.Store.Create(&u)
 	w.WriteHeader(http.StatusCreated)
 	w.Write([]byte(u.UserCreated()))
 	model.UserID++
@@ -125,14 +129,14 @@ func (s *APIServer) MakeFriends(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// проверка на наличие пользователей в базе
-	u1, err := s.storage.User().GetUser(id1)
+	u1, err := s.Store.GetUser(id1)
 	if err != nil {
 		w.WriteHeader(http.StatusNotFound)
 		logger.ForError(err)
 		return
 	}
 
-	u2, err := s.storage.User().GetUser(id2)
+	u2, err := s.Store.GetUser(id2)
 	if err != nil {
 		w.WriteHeader(http.StatusNotFound)
 		logger.ForError(err)
@@ -140,7 +144,7 @@ func (s *APIServer) MakeFriends(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// дружба
-	if err := s.storage.User().AddFriends(id1, id2); err != nil {
+	if err := s.Store.AddFriends(id1, id2); err != nil {
 		w.WriteHeader(http.StatusNotFound)
 		w.Write([]byte(err.Error()))
 		logger.ForError(err)
@@ -163,14 +167,14 @@ func (s *APIServer) DeleteUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// проверка на наличие пользователя в базе
-	u, err := s.storage.User().GetUser(id)
+	u, err := s.Store.GetUser(id)
 	if err != nil {
 		w.WriteHeader(http.StatusNotFound)
 		logger.ForError(err)
 		return
 	}
 
-	if err := s.storage.User().Delete(id); err != nil {
+	if err := s.Store.Delete(id); err != nil {
 		w.WriteHeader(http.StatusNotFound)
 		logger.ForError(err)
 	}
@@ -191,14 +195,14 @@ func (s *APIServer) GetUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// проверка на наличие пользователя в базе
-	_, err = s.storage.User().GetUser(id)
+	_, err = s.Store.GetUser(id)
 	if err != nil {
 		w.WriteHeader(http.StatusNotFound)
 		logger.ForError(err)
 		return
 	}
 
-	result, err := s.storage.User().AllFriends(id)
+	result, err := s.Store.AllFriends(id)
 	if err != nil {
 		w.WriteHeader(http.StatusNotFound)
 		logger.ForError(err)
@@ -242,21 +246,21 @@ func (s *APIServer) ChangeAge(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// проверка на наличие пользователя в базе
-	u, err := s.storage.User().GetUser(id)
+	u, err := s.Store.GetUser(id)
 	if err != nil {
 		w.WriteHeader(http.StatusNotFound)
 		logger.ForError(err)
 		return
 	}
 
-	if err := s.storage.User().NewAge(id, requestNewAge.New_age); err != nil {
+	if err := s.Store.NewAge(id, requestNewAge.New_age); err != nil {
 		w.WriteHeader(http.StatusNotFound)
 		w.Write([]byte(err.Error()))
 		logger.ForError(err)
 		return
 	}
 
-	newU, err := s.storage.User().GetUser(id)
+	newU, err := s.Store.GetUser(id)
 	if err != nil {
 		w.WriteHeader(http.StatusNotFound)
 		logger.ForError(err)
