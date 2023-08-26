@@ -8,14 +8,15 @@ import (
 var UserID = 1
 
 type User struct {
-	Name    string  `json: "name"`
-	Age     string  `json: "age"`
-	Friends []*User `json: "friends"`
+	Id      int
+	Name    string  `json:"name"`
+	Age     string  `json:"age"`
+	Friends []*User `json:"friends"`
 }
 
 // UserCreated оповещает о добавлении пользователя.
 func (u *User) UserCreated() string {
-	return fmt.Sprintf("User was created %s\nUserID : %d.\n", u.Name, UserID)
+	return fmt.Sprintf("User was created %s\nUserID : %d.\n", u.Name, u.Id)
 }
 
 // NowFriends оповещает о дружбе двух пользователей.
